@@ -79,11 +79,25 @@
     }).addTo(this.map);
     this.markers = L.layerGroup().addTo(this.map);
     this.line = null;
+    this.selfMarker = null;
     this.onPinClick = opts.onPinClick || function () {};
     this.bounds = [];
     var self = this;
     setTimeout(function () { self.map.invalidateSize(); }, 120);
   }
+
+  /* "Onde estamos": um pontinho azul de posição atual, igual ao do Maps —
+     separado dos pinos de entrega e nunca entra no enquadramento automático
+     (senão o mapa ficaria pulando enquanto o motorista dirige). */
+  LeafletView.prototype.setSelfPosition = function (lat, lon) {
+    if (lat === null || lon === null) return this.clearSelfPosition();
+    if (this.selfMarker) { this.selfMarker.setLatLng([lat, lon]); return; }
+    var icon = L.divIcon({ className: '', iconSize: [18, 18], iconAnchor: [9, 9], html: '<div class="self-pos"></div>' });
+    this.selfMarker = L.marker([lat, lon], { icon: icon, zIndexOffset: 2000, interactive: false }).addTo(this.map);
+  };
+  LeafletView.prototype.clearSelfPosition = function () {
+    if (this.selfMarker) { this.map.removeLayer(this.selfMarker); this.selfMarker = null; }
+  };
 
   LeafletView.prototype.setPins = function (pins) {
     var self = this;
@@ -92,7 +106,8 @@
     fanOut(pins.filter(function (p) { return p.lat !== null && p.lon !== null; }))
       .forEach(function (p) {
         var cls = 'pin' + (p.status === 'delivered' ? ' delivered' : p.status === 'failed' ? ' failed' : '') +
-          (p.current ? ' current' : '') + (p.isStart ? ' start' : '') + (p.suspect ? ' suspect' : '');
+          (p.current ? ' current' : '') + (p.isStart ? ' start' : '') + (p.suspect ? ' suspect' : '') +
+          (p.estimated ? ' estimated' : '');
         var icon = L.divIcon({
           className: '', iconSize: [28, 34], iconAnchor: [14, 34],
           html: '<div class="' + cls + '">' + U.escapeHtml(p.label) + '</div>'
@@ -151,9 +166,25 @@
     });
     this.markers = [];
     this.line = null;
+    this.selfMarker = null;
     this.onPinClick = opts.onPinClick || function () {};
     this.boundsObj = null;
   }
+
+  GoogleView.prototype.setSelfPosition = function (lat, lon) {
+    if (lat === null || lon === null) return this.clearSelfPosition();
+    if (this.selfMarker) { this.selfMarker.setPosition({ lat: lat, lng: lon }); return; }
+    this.selfMarker = new google.maps.Marker({
+      position: { lat: lat, lng: lon }, map: this.map, clickable: false, zIndex: 2000,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE, scale: 8,
+        fillColor: '#4285F4', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2
+      }
+    });
+  };
+  GoogleView.prototype.clearSelfPosition = function () {
+    if (this.selfMarker) { this.selfMarker.setMap(null); this.selfMarker = null; }
+  };
 
   GoogleView.prototype.setPins = function (pins) {
     var self = this;
@@ -170,6 +201,7 @@
             url: svgPin(p.label, colorFor(p.isStart ? 'start' : p.suspect ? 'suspect' : p.status)),
             anchor: new google.maps.Point(17, 42)
           },
+          opacity: p.estimated ? 0.7 : 1,
           zIndex: p.current ? 1000 : undefined
         });
         m.addListener('click', function () { self.onPinClick(p.uid); });

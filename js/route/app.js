@@ -35,7 +35,7 @@
 
     SPX.ui.importWizard.init();
     SPX.ui.stopSheet.init({
-      onStatus: function () { refresh(); },
+      onStatus: onStopStatusChanged,
       onEdit: openEditModal,
       onDuplicate: function (uid) { model.duplicate(uid); refresh(); U.toast('Parada duplicada.'); },
       onRemove: function (uid) { model.remove(uid); refresh(); U.toast('Parada removida.'); }
@@ -242,7 +242,26 @@
   function setMode(next) {
     mode = next;
     refining = false;
+    if (next === 'active') startWatchingPosition(); else stopWatchingPosition();
     refresh();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* "Onde estamos" — pontinho de posição ao vivo durante a rota ativa    */
+  /* ------------------------------------------------------------------ */
+  var watchId = null;
+  function startWatchingPosition() {
+    if (watchId !== null || !navigator.geolocation) return;
+    watchId = navigator.geolocation.watchPosition(
+      function (pos) { if (mapView) mapView.setSelfPosition(pos.coords.latitude, pos.coords.longitude); },
+      function () { /* sem permissão/sinal: só não mostra o pontinho, não atrapalha o resto */ },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
+  }
+  function stopWatchingPosition() {
+    if (watchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    if (mapView) mapView.clearSelfPosition();
   }
 
   function refresh() {
@@ -344,7 +363,7 @@
     var pins = model.ordered().map(function (s) {
       return {
         uid: s.uid, lat: s.lat, lon: s.lon, label: s.id, status: s.status,
-        suspect: !!s.suspect,
+        suspect: !!s.suspect, estimated: s.geoPrecision === 'estimado',
         current: mode === 'active' && next && next.uid === s.uid
       };
     });
@@ -373,6 +392,18 @@
   function openStop(uid) {
     var stop = model.byUid(uid);
     if (!stop) return;
+
+    /* Rota em andamento: avisa que a parada aberta não é a próxima da
+       sequência, mas deixa entregar fora de ordem do mesmo jeito — é comum
+       o motorista adiantar uma entrega que está no caminho. */
+    if (mode === 'active' && stop.status === 'pending') {
+      var next = model.nextPending();
+      if (next && next.uid !== stop.uid) {
+        U.toast('Você pulou a parada ' + next.id + ' — ' +
+          (next.street || next.address) + ', que era a próxima da sequência.', 4500);
+      }
+    }
+
     var list = model.ordered();
     SPX.ui.stopSheet.open(stop, {
       position: list.findIndex(function (s) { return s.uid === stop.uid; }) + 1,
@@ -380,6 +411,18 @@
       selectedFields: model.selectedFields
     });
     if (mapView && stop.lat !== null) mapView.focus(stop.lat, stop.lon);
+  }
+
+  /* Ao marcar Entregue/Não entregue durante a rota ativa, segue direto para
+     a próxima parada pendente — sem precisar fechar e tocar de novo. */
+  function onStopStatusChanged(uid, status) {
+    refresh();
+    if (mode !== 'active' || (status !== 'delivered' && status !== 'failed')) return;
+    var next = model.nextPending();
+    setTimeout(function () {
+      if (next) openStop(next.uid);
+      else { SPX.ui.stopSheet.close(); U.toast('Todas as paradas foram finalizadas!'); }
+    }, 350);
   }
 
   /* ------------------------------------------------------------------ */

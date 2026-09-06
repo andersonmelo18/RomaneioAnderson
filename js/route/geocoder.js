@@ -135,6 +135,17 @@
     return best;
   }
 
+  /* Centro (mediana) das âncoras que declaram o MESMO bairro da planilha —
+     usado só como último recurso, quando a busca de verdade não achou nada.
+     É seguro porque só usa pontos que a própria rota já confirmou. */
+  function bairroCentroid(anchors, neighborhood) {
+    var key = U.normalizeKey(neighborhood);
+    if (!key) return null;
+    var pts = anchors.filter(function (a) { return U.normalizeKey(a.neighborhood) === key; });
+    if (!pts.length) return null;
+    return { lat: U.median(pts.map(function (p) { return p.lat; })), lon: U.median(pts.map(function (p) { return p.lon; })) };
+  }
+
   /* -------------------- filtro de sanidade -------------------- */
   function validate(candidate, query, center, maxKm, anchors) {
     if (!candidate || isNaN(candidate.lat) || isNaN(candidate.lon)) {
@@ -146,12 +157,6 @@
     if (candidate.street && U.streetSimilarity(query.street, candidate.street) < 0.5) {
       return { ok: false, reason: 'rua devolvida diferente da pedida' };
     }
-    /* Mesmo nome de rua, bairro diferente do informado na planilha — provável
-       homônimo em outra parte da cidade. */
-    if (query.neighborhood && candidate.neighborhood &&
-        U.streetSimilarity(query.neighborhood, candidate.neighborhood) === 0) {
-      return { ok: false, reason: 'bairro devolvido (' + candidate.neighborhood + ') diferente do esperado' };
-    }
     if (center) {
       var d = U.haversine(center.lat, center.lon, candidate.lat, candidate.lon);
       if (d > maxKm) return { ok: false, reason: 'fora do raio da rota (' + d.toFixed(1) + ' km)' };
@@ -159,6 +164,16 @@
     var nearest = nearestAnchorKm(candidate, anchors);
     if (nearest !== null && nearest > NEAREST_ANCHOR_MAX_KM) {
       return { ok: false, reason: 'longe de qualquer parada já confirmada (' + nearest.toFixed(1) + ' km)' };
+    }
+    /* O nome do bairro que a planilha usa raramente bate 100% com o que o
+       mapa devolve (a Shopee e o OpenStreetMap não dividem os bairros do
+       mesmo jeito) — por isso só usamos isso como pista quando ainda não há
+       NENHUMA parada confirmada por perto para servir de prova melhor. Uma
+       vez que existe uma parada próxima confirmada, a proximidade vale mais
+       do que o rótulo do bairro. */
+    if (nearest === null && query.neighborhood && candidate.neighborhood &&
+        U.streetSimilarity(query.neighborhood, candidate.neighborhood) === 0) {
+      return { ok: false, reason: 'bairro devolvido (' + candidate.neighborhood + ') diferente do esperado' };
     }
     return { ok: true };
   }
@@ -212,7 +227,20 @@
        medida que mais endereços vão sendo confirmados nesta mesma rodada. */
     var anchors = stops
       .filter(function (s) { return s.lat !== null && s.lon !== null; })
-      .map(function (s) { return { lat: s.lat, lon: s.lon }; });
+      .map(function (s) { return { lat: s.lat, lon: s.lon, neighborhood: s.neighborhood }; });
+
+    /* Só o Nominatim exige ~1 busca/s; em vez de dormir um tempo fixo antes E
+       depois de cada grupo (o que deixava até rota pequena lenta), esperamos
+       só o necessário desde a ÚLTIMA chamada ao Nominatim. O Photon é outro
+       serviço — não faz sentido esperar a cota do Nominatim antes de chamá-lo. */
+    var lastNominatimAt = 0;
+    async function throttledNominatim(query) {
+      var wait = 1000 - (Date.now() - lastNominatimAt);
+      if (wait > 0) await U.sleep(wait);
+      var r = await nominatimLookup(query);
+      lastNominatimAt = Date.now();
+      return r;
+    }
 
     for (var g = 0; g < order.length; g++) {
       if (isCancelled()) return { cancelled: true, located: 0, failed: 0, groups: order.length };
@@ -232,20 +260,41 @@
       if (useGoogle) {
         candidate = await googleLookup(query);
       } else {
-        candidate = await nominatimLookup(query);
+        candidate = await throttledNominatim(query);
         var check = candidate ? validate(candidate, query, center, maxKm, anchors) : { ok: false };
         if (!check.ok) {
-          await U.sleep(1100);                     // política do Nominatim: 1 busca/s
           candidate = await photonLookup(query, center);
         }
       }
 
       var verdict = candidate ? validate(candidate, query, center, maxKm, anchors) : { ok: false, reason: 'não encontrado' };
+      var precisionOverride = null;
+
+      /* O serviço às vezes não acha o NÚMERO exato da casa, mas acha a rua.
+         Antes de desistir, tenta de novo só com o nome da rua — um ponto no
+         meio da rua certa é bem melhor do que nenhum pino. */
+      if (!verdict.ok && query.number) {
+        var streetQuery = { street: query.street, number: '', neighborhood: query.neighborhood, city: query.city, zip: '' };
+        var streetCandidate = useGoogle
+          ? await googleLookup(streetQuery)
+          : await throttledNominatim(streetQuery);
+        var streetCheck = streetCandidate ? validate(streetCandidate, streetQuery, center, maxKm, anchors) : { ok: false };
+        if (!streetCheck.ok && !useGoogle) {
+          streetCandidate = await photonLookup(streetQuery, center);
+          streetCheck = streetCandidate ? validate(streetCandidate, streetQuery, center, maxKm, anchors) : { ok: false };
+        }
+        if (streetCheck.ok) {
+          candidate = streetCandidate;
+          verdict = streetCheck;
+          precisionOverride = 'approx';
+        }
+      }
+
       if (verdict.ok) {
         var entry = {
           members: members, lat: candidate.lat, lon: candidate.lon,
-          streetKey: U.normalizeKey(query.street), source: candidate.source,
-          precision: candidate.precision || (candidate.houseNumber ? 'exact' : 'approx')
+          streetKey: U.normalizeKey(query.street), source: candidate.source, estimated: false,
+          precision: precisionOverride || candidate.precision || (candidate.houseNumber ? 'exact' : 'approx')
         };
         accepted.push(entry);
         /* Aplica na hora para o pino já aparecer no mapa enquanto o resto roda. */
@@ -253,30 +302,57 @@
           s.lat = entry.lat; s.lon = entry.lon;
           s.geoSource = entry.source; s.geoPrecision = entry.precision;
         });
-        anchors.push({ lat: entry.lat, lon: entry.lon });
+        anchors.push({ lat: entry.lat, lon: entry.lon, neighborhood: rep.neighborhood });
         if (opts.onResult) opts.onResult();
       } else {
-        failed += members.length;
-        members.forEach(function (s) { s.geoSource = null; s.geoPrecision = null; });
+        /* Último recurso: nenhum serviço achou nada de jeito nenhum. Em vez de
+           deixar a parada sem NENHUM pino, usa o centro das paradas já
+           confirmadas do MESMO bairro (ou, na falta dele, o centro da rota
+           inteira) como posição estimada — sempre marcada como tal, nunca
+           escondida. Só fica mesmo sem pino se a rota inteira ainda não tem
+           nenhuma coordenada confirmada (bem no começo de uma planilha sem
+           coordenada nenhuma). */
+        var estimate = bairroCentroid(anchors, rep.neighborhood) || center;
+        if (estimate) {
+          var estEntry = {
+            members: members, lat: estimate.lat, lon: estimate.lon,
+            streetKey: U.normalizeKey(query.street), source: 'estimate', estimated: true,
+            precision: 'estimado'
+          };
+          accepted.push(estEntry);
+          estEntry.members.forEach(function (s) {
+            s.lat = estEntry.lat; s.lon = estEntry.lon;
+            s.geoSource = estEntry.source; s.geoPrecision = estEntry.precision;
+          });
+          if (opts.onResult) opts.onResult();
+        } else {
+          failed += members.length;
+          members.forEach(function (s) { s.geoSource = null; s.geoPrecision = null; });
+        }
       }
 
-      /* O serviço gratuito aceita ~1 busca por segundo; com o Google não há espera. */
-      if (!useGoogle && g < order.length - 1) await U.sleep(1100);
-      if (center === null && accepted.length === 1) {
+      if (center === null && accepted.length === 1 && !accepted[0].estimated) {
         center = { lat: accepted[0].lat, lon: accepted[0].lon };
         maxKm = 25;
       }
     }
 
     /* Última checagem: se RUAS DIFERENTES devolveram a MESMA coordenada, o
-       serviço caiu num ponto genérico (centro do bairro). Desfaz esses pinos. */
+       serviço caiu num ponto genérico (centro do bairro). Desfaz esses pinos.
+       As "estimado" ficam de fora dessa checagem de propósito: elas SÃO um
+       ponto único compartilhado por ruas diferentes do mesmo bairro — é
+       exatamente o que uma estimativa por bairro deveria fazer, não um sinal
+       de erro do serviço gratuito. */
+    var located = 0;
+    var realAccepted = accepted.filter(function (a) { return !a.estimated; });
+    accepted.filter(function (a) { return a.estimated; }).forEach(function (a) { located += a.members.length; });
+
     var byCoord = {};
-    accepted.forEach(function (a) {
+    realAccepted.forEach(function (a) {
       var k = a.lat.toFixed(4) + ',' + a.lon.toFixed(4);
       (byCoord[k] = byCoord[k] || []).push(a);
     });
 
-    var located = 0;
     Object.keys(byCoord).forEach(function (k) {
       var bucket = byCoord[k];
       var distinctStreets = {};

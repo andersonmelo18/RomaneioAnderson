@@ -61,7 +61,16 @@
 
     rows.slice(1).forEach(function (row, idx) {
       var address = String(cellOf(row, columnMap, 'address') || '').trim();
-      if (!address) return;
+      if (!address) {
+        /* Linha realmente vazia (sobra no fim da planilha) — não é parada,
+           ignora. Mas se a linha tem outros dados (SPX TN, sequência...) e só
+           o endereço ficou em branco, a parada NÃO some da lista: melhor
+           aparecer marcada "sem endereço" do que sumir sem o motorista notar. */
+        var hasOtherData = ['atId', 'sequence', 'stop', 'spxTn', 'neighborhood', 'city', 'zip']
+          .some(function (k) { return String(cellOf(row, columnMap, k) || '').trim() !== ''; });
+        if (!hasOtherData) return;
+        address = '(endereço não veio na planilha)';
+      }
 
       var seqRaw = cellOf(row, columnMap, 'sequence');
       var seqNum = toNumber(seqRaw);

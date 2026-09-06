@@ -90,6 +90,10 @@
   background:var(--warn-light);color:#A65B00;font-size:10.5px;font-weight:600;
   padding:2px 7px;border-radius:5px;display:inline-block;margin-top:4px;
 }
+.estimate-geo{
+  background:var(--warn-light);color:#A65B00;font-size:10.5px;font-weight:600;
+  padding:2px 7px;border-radius:5px;display:inline-block;margin-top:4px;
+}
 
 /* linha do "ponto de partida" (igual ao Spoke) */
 .start-row{display:flex;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);align-items:flex-start;}
@@ -149,6 +153,16 @@
 .pin.start{background:#202124;border-radius:50%;} .pin.start::after{border-top-color:#202124;}
 /* Coordenada longe do resto da rota — avisa em vez de esconder o pino. */
 .pin.suspect{background:var(--warn);border-style:dashed;} .pin.suspect::after{border-top-color:var(--warn);}
+/* Posição estimada pelo bairro (não achamos o endereço exato) — pino mais
+   apagado e pontilhado, mas SEMPRE existe: nunca fica sem marcação nenhuma. */
+.pin.estimated{opacity:.7;border-style:dotted;}
+
+/* "Onde estamos": pontinho azul de posição atual (padrão de mapa), com um
+   halo suave para não ser confundido com um pino de entrega. */
+.self-pos{
+  width:16px;height:16px;border-radius:50%;background:#4285F4;
+  border:2.5px solid #fff;box-shadow:0 0 0 6px rgba(66,133,244,.28),0 1px 4px rgba(0,0,0,.35);
+}
 
 /* ---------- Wizard de importação (tela cheia) ---------- */
 .overlay{

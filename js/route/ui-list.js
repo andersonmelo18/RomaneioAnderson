@@ -24,6 +24,8 @@
       flag = '<div class="no-geo">📍 sem localização</div>';
     } else if (stop.suspect) {
       flag = '<div class="suspect-geo">⚠️ longe do resto da rota — confira</div>';
+    } else if (stop.geoPrecision === 'estimado') {
+      flag = '<div class="estimate-geo">📍 posição estimada pelo bairro — confira</div>';
     } else if (stop.geoPrecision === 'approx') {
       flag = '<div class="approx-geo">📍 posição aproximada da rua</div>';
     }

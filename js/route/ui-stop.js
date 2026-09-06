@@ -128,6 +128,9 @@
     } else if (s.suspect) {
       rows += infoRow('⚠️', 'Localização',
         '<span style="color:#A65B00">esse pino está bem longe do resto da rota — confira o endereço antes de navegar</span>');
+    } else if (s.geoPrecision === 'estimado') {
+      rows += infoRow('📍', 'Localização',
+        '<span style="color:#A65B00">posição estimada pelo bairro, não achamos o endereço exato — confira antes de navegar</span>');
     }
 
     rows += actionRow('✏️', 'Editar parada', 'edit');

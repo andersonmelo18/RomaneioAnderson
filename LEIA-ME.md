@@ -19,6 +19,12 @@ para funcionar — só para carregar o mapa e localizar endereços novos.
 5. Toque em uma parada para abrir: **Navegar**, **Não entregue**, **Entregue**,
    editar, duplicar ou remover.
 
+Com a rota **iniciada** (Confirmar): o mapa mostra um pontinho azul com a sua posição
+ao vivo. Ao marcar **Entregue** ou **Não entregue**, o app já abre a próxima parada
+pendente sozinho — não precisa fechar e procurar na lista. Se você tocar numa parada
+fora da ordem (adiantando uma entrega que está no caminho, por exemplo), o app avisa
+qual seria a próxima da sequência, mas deixa continuar do jeito que você preferir.
+
 Menu **⋮**: reotimizar, redefinir IDs, mostrar/ocultar a linha da rota, importar outra
 planilha, exportar a rota otimizada em .xlsx, imprimir e configurações.
 
@@ -45,13 +51,17 @@ endereços. Serve para você decidir se vale a pena configurar uma chave do Goog
    os do Google — mesma precisão do Spoke.
 3. **Sem chave**: busca gratuita no OpenStreetMap, com um filtro que **recusa** o
    resultado quando ele é o centro do bairro, quando a rua devolvida é outra, quando
-   o bairro devolvido não bate com o esperado, quando cai longe da rota, quando cai
-   longe de qualquer parada já confirmada (é o que pega o caso de duas ruas com o
-   **mesmo nome** em bairros diferentes da cidade), ou quando ruas diferentes caem
-   no mesmo ponto.
-   O que não passa no filtro fica marcado como "sem localização" na lista —
-   **nunca é plotado num lugar errado**.
-4. **Aviso de coordenada distante**: mesmo quando a planilha já traz Latitude/Longitude,
+   cai longe da rota, ou quando cai longe de qualquer parada já confirmada (é o que
+   pega o caso de duas ruas com o **mesmo nome** em bairros diferentes da cidade).
+4. **Endereço sem número certo**: se não achar o número exato, tenta de novo só com
+   o nome da rua — o pino fica marcado como "posição aproximada da rua".
+5. **Último recurso**: se mesmo assim nada for encontrado, o app usa o centro das
+   paradas já confirmadas do MESMO bairro da planilha (ou o centro da rota) como
+   posição estimada — o pino fica apagado e pontilhado, e a parada mostra
+   "posição estimada pelo bairro — confira". **A parada nunca fica sem nenhum pino**;
+   só continua "sem localização" no raríssimo caso de a rota inteira ainda não ter
+   nenhuma coordenada confirmada em lugar nenhum.
+6. **Aviso de coordenada distante**: mesmo quando a planilha já traz Latitude/Longitude,
    se algum endereço cair bem longe do resto da rota, o pino aparece em laranja com
    borda tracejada e a parada mostra "⚠️ longe do resto da rota — confira", em vez de
    simplesmente confiar cegamente no que veio no arquivo.
