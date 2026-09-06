@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roteirizador SPX — Importar Planilha</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="box">SPX</span> Roteirizador</div>
+  <div class="tabs">
+    <a class="tab-btn active" href="index.html">Importar Planilha</a>
+    <a class="tab-btn" href="criar-planilha.html">Criar Planilha</a>
+  </div>
+</div>
+
+<main>
+
+  <div class="card" id="uploadCard">
+    <h2>Importar planilha da rota</h2>
+    <div class="sub">Envie o arquivo .xlsx exportado do roteirizador (ou gerado na aba "Criar Planilha"). O site detecta as colunas automaticamente.</div>
+    <label class="dropzone" for="fileInput">
+      <div class="icon">📄</div>
+      <h3>Clique para escolher a planilha</h3>
+      <p>Formatos aceitos: .xlsx, .xls</p>
+      <input type="file" id="fileInput" accept=".xlsx,.xls">
+    </label>
+    <div class="hint-box" style="margin-top:14px;">
+      <b>Colunas reconhecidas automaticamente:</b> AT ID, Sequence, Stop, SPX TN, Destination Address, Bairro/Neighborhood, City, Zipcode/Postal code, Address Type, Corridor Cage, Latitude, Longitude. Não precisa ter todas — o site usa o que encontrar. Endereços sem Latitude/Longitude na planilha são localizados automaticamente no mapa (busca gratuita via OpenStreetMap — pode levar alguns segundos e, em condomínios/loteamentos informais, nem sempre encontra o número exato do prédio).
+    </div>
+  </div>
+
+  <div id="routeScreen" style="display:none;">
+    <div class="route-layout">
+      <div class="route-list-panel">
+        <div class="route-header">
+          <div class="title" id="routeTitle">Rota importada</div>
+          <div class="stats" id="routeStats">0 paradas</div>
+        </div>
+        <div class="route-actions">
+          <button class="btn btn-primary btn-sm" id="btnOptimize">🔄 Otimizar rota</button>
+          <button class="btn btn-outline btn-sm" id="btnStart">▶ Iniciar rota</button>
+          <button class="btn btn-ghost btn-sm" id="btnNewImport">📄 Nova importação</button>
+        </div>
+        <div id="geoProgressBanner" class="savings-banner geo" style="display:none;">
+          <span id="geoProgressText">🔎 Localizando endereços no mapa...</span>
+        </div>
+        <div id="savingsBanner" class="savings-banner" style="display:none;">
+          <span id="savingsText"></span>
+          <button id="closeSavings">✕</button>
+        </div>
+        <div class="stop-list" id="stopList"></div>
+      </div>
+      <div class="route-map-panel">
+        <div id="map"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ======================= WIZARD OVERLAY ======================= -->
+<div class="overlay hidden" id="wizardIntro">
+  <div class="overlay-body">
+    <h1>O Roteirizador precisa de ajuda para importar sua rota.</h1>
+    <p class="desc">Responda a uma pergunta rápida para identificarmos as informações extras do arquivo importado.</p>
+  </div>
+  <div class="overlay-footer">
+    <button class="link-btn" id="wizardCancel">CANCELAR</button>
+    <button class="btn btn-primary" id="wizardNext1">VAMOS LÁ</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="wizardFields">
+  <div class="overlay-body">
+    <h1 style="font-size:22px;">Além das informações de endereço, selecione o que mais você quer ver ao chegar</h1>
+    <div id="fieldsList"></div>
+  </div>
+  <div class="overlay-footer">
+    <button class="link-btn" id="wizardBack">←</button>
+    <button class="btn btn-primary" id="wizardFinish">PRÓXIMO</button>
+  </div>
+</div>
+
+<!-- ======================= STOP DETAIL SHEET ======================= -->
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="sheet" id="stopSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3 id="sheetTitle">Endereço</h3>
+    <button class="close-x" id="sheetClose">✕</button>
+  </div>
+  <div class="sheet-sub" id="sheetSub">1/1</div>
+  <div class="sheet-actions">
+    <button class="btn btn-primary" id="btnNavegar">🧭<br>Navegar</button>
+    <button class="btn btn-ghost" id="btnNaoEntregue">📦❌<br>Não entregue</button>
+    <button class="btn btn-ghost" id="btnEntregue">📦✅<br>Entregue</button>
+  </div>
+  <div id="sheetRows"></div>
+  <div class="sheet-bottom-space"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/leaflet.js"></script>
+<script src="js/common.js"></script>
+<script src="js/import.js"></script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roteirizador SPX — Criar Planilha</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="box">SPX</span> Roteirizador</div>
+  <div class="tabs">
+    <a class="tab-btn" href="index.html">Importar Planilha</a>
+    <a class="tab-btn active" href="criar-planilha.html">Criar Planilha</a>
+  </div>
+</div>
+
+<main>
+
+  <div class="card">
+    <h2>Criar / converter planilha (romaneio → xlsx)</h2>
+    <div class="sub">Cole o romaneio manualmente (copiado de uma planilha, e-mail ou sistema) e gere um arquivo .xlsx no formato usado pelo roteirizador.</div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Nome do motorista</label>
+        <input type="text" id="driverName" placeholder="Ex: ANDERSON MELO DE ANDRADE">
+      </div>
+      <div class="field">
+        <label>Data da rota</label>
+        <input type="date" id="routeDate">
+      </div>
+      <div class="field">
+        <label>Cidade padrão</label>
+        <input type="text" id="defaultCity" value="João Pessoa">
+      </div>
+    </div>
+
+    <label style="font-size:12.5px;font-weight:700;color:#555;">Cole o romaneio aqui</label>
+    <textarea id="romaneioInput" placeholder="Sequence	SPX TN	Destination Address	Neighborhood	Address Type
+1	BR262996344720M	Rua da Brisa, 628, Casa	Gramame (Lot c sul)	HOME
+2	BR266479257984J	Rua Félix Araújo da Silva, 345, Ap 201	Gramame	HOME
+..."></textarea>
+    <div class="hint-box">
+      <b>Como colar:</b> copie direto de uma planilha (Excel/Sheets) — as colunas separadas por TAB são detectadas automaticamente, com ou sem a coluna <b>Stop</b>. Ordem esperada sem cabeçalho: <span class="kbd">Sequence</span> <span class="kbd">SPX TN</span> <span class="kbd">Destination Address</span> <span class="kbd">Neighborhood</span> <span class="kbd">Address Type</span> (a coluna <span class="kbd">Stop</span> pode entrar logo após Sequence quando presente).
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-primary" id="btnParse">⚙️ Processar romaneio</button>
+      <button class="btn btn-ghost" id="btnClearAll">🗑️ Limpar tudo</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Adicionar parada manualmente</h2>
+    <div class="sub">Use isto para montar a planilha do zero, linha por linha.</div>
+    <div class="add-row-grid">
+      <div class="field"><label>Sequence</label><input type="number" id="mSeq" placeholder="auto"></div>
+      <div class="field"><label>SPX TN</label><input type="text" id="mTn" placeholder="BR..."></div>
+      <div class="field"><label>Destination Address</label><input type="text" id="mAddr" placeholder="Rua, número, complemento"></div>
+      <div class="field"><label>Neighborhood</label><input type="text" id="mBairro" placeholder="Bairro"></div>
+      <div class="field">
+        <label>Address Type</label>
+        <select id="mType"><option>HOME</option><option>OFFICE</option><option>OTHER</option></select>
+      </div>
+      <button class="btn btn-primary btn-sm" id="btnAddRow">+ Adicionar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+      <div>
+        <h2 style="margin-bottom:6px;">Prévia da planilha</h2>
+        <span class="stat-pill" id="rowCountPill">0 linhas</span>
+      </div>
+      <button class="btn btn-primary" id="btnExport">⬇️ Gerar planilha (.xlsx)</button>
+    </div>
+    <div class="table-wrap">
+      <table class="preview">
+        <thead>
+          <tr>
+            <th style="width:60px;">Seq</th>
+            <th style="width:55px;">Stop</th>
+            <th style="width:150px;">SPX TN</th>
+            <th>Destination Address</th>
+            <th style="width:140px;">Bairro</th>
+            <th style="width:100px;">Tipo</th>
+            <th style="width:36px;"></th>
+          </tr>
+        </thead>
+        <tbody id="previewBody"></tbody>
+      </table>
+    </div>
+    <div class="hint-box" style="margin-top:14px;">
+      Essa planilha exportada usa a mesma estrutura da planilha oficial do roteirizador: AT ID, Sequence, Stop, SPX TN, Destination Address, Bairro, City, Zipcode/Postal code, Latitude, Longitude (+ Address Type como coluna extra). Latitude/Longitude saem em branco — ao importar essa planilha na aba "Importar Planilha", os endereços são localizados automaticamente no mapa.
+    </div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="js/common.js"></script>
+<script src="js/convert.js"></script>
+</body>
+</html>
