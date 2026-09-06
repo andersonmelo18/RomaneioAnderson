@@ -1,113 +1,231 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="shopee">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Roteirizador SPX — Importar Planilha</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Roteirizador SPX</title>
 <link rel="stylesheet" href="vendor/leaflet.css">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/route.css">
 </head>
 <body>
 
 <div class="topbar">
   <div class="brand"><span class="box">SPX</span> Roteirizador</div>
-  <div class="tabs">
-    <a class="tab-btn active" href="index.html">Importar Planilha</a>
-    <a class="tab-btn" href="criar-planilha.html">Criar Planilha</a>
+  <div class="topbar-right">
+    <div class="tabs">
+      <a class="tab-btn active" href="index.html">Rota</a>
+      <a class="tab-btn" href="criar-planilha.html">Criar planilha</a>
+    </div>
+    <button class="icon-btn" id="btnSettings" title="Configurações">⚙</button>
   </div>
 </div>
 
-<main>
+<div class="route-shell">
 
-  <div class="card" id="uploadCard">
-    <h2>Importar planilha da rota</h2>
-    <div class="sub">Envie o arquivo .xlsx exportado do roteirizador (ou gerado na aba "Criar Planilha"). O site detecta as colunas automaticamente.</div>
-    <label class="dropzone" for="fileInput">
-      <div class="icon">📄</div>
-      <h3>Clique para escolher a planilha</h3>
-      <p>Formatos aceitos: .xlsx, .xls</p>
-      <input type="file" id="fileInput" accept=".xlsx,.xls">
-    </label>
-    <div class="hint-box" style="margin-top:14px;">
-      <b>Colunas reconhecidas automaticamente:</b> AT ID, Sequence, Stop, SPX TN, Destination Address, Bairro/Neighborhood, City, Zipcode/Postal code, Address Type, Corridor Cage, Latitude, Longitude. Não precisa ter todas — o site usa o que encontrar. Endereços sem Latitude/Longitude na planilha são localizados automaticamente no mapa (busca gratuita via OpenStreetMap — pode levar alguns segundos e, em condomínios/loteamentos informais, nem sempre encontra o número exato do prédio).
+  <div class="panel">
+    <!-- ------------------------- ESTADO VAZIO ------------------------- -->
+    <div class="view" id="viewEmpty">
+      <div class="empty-state">
+        <div class="glyph">📍</div>
+        <p>Adicione as primeiras paradas para começar a criar sua rota</p>
+        <button class="btn btn-primary btn-lg btn-block" id="btnImport">📄 Importar planilha</button>
+        <a class="btn btn-ghost btn-block" href="criar-planilha.html">✏️ Digitar o romaneio e gerar a planilha</a>
+        <div class="hint-box" style="text-align:left">
+          A planilha oficial do roteirizador já vem com <b>Latitude</b> e <b>Longitude</b> — nesse
+          caso os pinos entram exatos, sem nenhuma busca. Se a planilha vier sem coordenada, o app
+          procura cada endereço e <b>só marca no mapa o que ele consegue confirmar</b>; o que não
+          confirmar fica sinalizado na lista em vez de aparecer no lugar errado.
+        </div>
+      </div>
+    </div>
+
+    <!-- ------------------------- ROTA ------------------------- -->
+    <div class="view" id="viewRoute">
+      <div class="panel-head">
+        <div class="row">
+          <div style="min-width:0">
+            <div class="panel-metrics" id="routeMetrics">0 paradas</div>
+            <div class="panel-title" id="routeTitle">Rota</div>
+          </div>
+          <button class="icon-btn" id="btnMenu" title="Mais opções"
+                  style="background:var(--surface-2);color:var(--text-2)">⋮</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <span>🔍</span><input id="searchInput" placeholder="Buscar parada, rua ou SPX TN">
+      </div>
+      <div class="stop-list" id="stopList"></div>
+      <div class="panel-foot" id="panelFoot"></div>
     </div>
   </div>
 
-  <div id="routeScreen" style="display:none;">
-    <div class="route-layout">
-      <div class="route-list-panel">
-        <div class="route-header">
-          <div class="title" id="routeTitle">Rota importada</div>
-          <div class="stats" id="routeStats">0 paradas</div>
-        </div>
-        <div class="route-actions">
-          <button class="btn btn-primary btn-sm" id="btnOptimize">🔄 Otimizar rota</button>
-          <button class="btn btn-outline btn-sm" id="btnStart">▶ Iniciar rota</button>
-          <button class="btn btn-ghost btn-sm" id="btnNewImport">📄 Nova importação</button>
-        </div>
-        <div id="geoProgressBanner" class="savings-banner geo" style="display:none;">
-          <span id="geoProgressText">🔎 Localizando endereços no mapa...</span>
-        </div>
-        <div id="savingsBanner" class="savings-banner" style="display:none;">
-          <span id="savingsText"></span>
-          <button id="closeSavings">✕</button>
-        </div>
-        <div class="stop-list" id="stopList"></div>
-      </div>
-      <div class="route-map-panel">
-        <div id="map"></div>
-      </div>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div class="geo-progress" id="geoProgress"><span class="spinner"></span><span id="geoText"></span></div>
+    <div class="map-chip" id="savingsChip">
+      <span class="ok">✓</span><span id="savingsText"></span>
+      <button id="savingsClose" title="Fechar">✕</button>
     </div>
   </div>
 
-</main>
+</div>
 
-<!-- ======================= WIZARD OVERLAY ======================= -->
-<div class="overlay hidden" id="wizardIntro">
+<!-- Folha usada só na impressão -->
+<div class="print-only" id="printSheet"></div>
+
+<input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+
+<!-- ======================= WIZARD DE IMPORTAÇÃO ======================= -->
+<div class="overlay" id="wizardIntro">
   <div class="overlay-body">
     <h1>O Roteirizador precisa de ajuda para importar sua rota.</h1>
-    <p class="desc">Responda a uma pergunta rápida para identificarmos as informações extras do arquivo importado.</p>
+    <p class="desc">Responda a algumas perguntas para nos ajudar a identificar as informações no arquivo importado.</p>
   </div>
-  <div class="overlay-footer">
-    <button class="link-btn" id="wizardCancel">CANCELAR</button>
-    <button class="btn btn-primary" id="wizardNext1">VAMOS LÁ</button>
+  <div class="overlay-foot">
+    <button class="txt-btn" id="wizardCancel">CANCELAR</button>
+    <button class="go-btn" id="wizardNext">VAMOS LÁ</button>
   </div>
 </div>
 
-<div class="overlay hidden" id="wizardFields">
+<div class="overlay" id="wizardFields">
   <div class="overlay-body">
-    <h1 style="font-size:22px;">Além das informações de endereço, selecione o que mais você quer ver ao chegar</h1>
+    <h1 style="font-size:22px">Além das informações de endereço, selecione o que mais você quer ver ao chegar</h1>
     <div id="fieldsList"></div>
   </div>
-  <div class="overlay-footer">
-    <button class="link-btn" id="wizardBack">←</button>
-    <button class="btn btn-primary" id="wizardFinish">PRÓXIMO</button>
+  <div class="overlay-foot">
+    <button class="txt-btn" id="wizardBack">←</button>
+    <button class="go-btn" id="wizardFinish">PRÓXIMO</button>
   </div>
 </div>
 
-<!-- ======================= STOP DETAIL SHEET ======================= -->
+<!-- ======================= DETALHE DA PARADA ======================= -->
 <div class="sheet-backdrop" id="sheetBackdrop"></div>
-<div class="sheet" id="stopSheet">
-  <div class="sheet-handle"></div>
-  <div class="sheet-head">
-    <h3 id="sheetTitle">Endereço</h3>
-    <button class="close-x" id="sheetClose">✕</button>
+<div class="stop-sheet" id="stopSheet">
+  <div class="handle"></div>
+  <div class="head">
+    <h2 id="stopSheetTitle">Endereço</h2>
+    <button class="close-x" id="stopSheetClose">✕</button>
   </div>
-  <div class="sheet-sub" id="sheetSub">1/1</div>
-  <div class="sheet-actions">
-    <button class="btn btn-primary" id="btnNavegar">🧭<br>Navegar</button>
-    <button class="btn btn-ghost" id="btnNaoEntregue">📦❌<br>Não entregue</button>
-    <button class="btn btn-ghost" id="btnEntregue">📦✅<br>Entregue</button>
+  <div class="sub" id="stopSheetSub"></div>
+  <div class="stop-actions">
+    <button class="act primary" data-act="navigate"><span class="ico">🧭</span>Navegar</button>
+    <button class="act" data-act="failed"><span class="ico">📦</span>Não entregue</button>
+    <button class="act" data-act="delivered"><span class="ico">📦</span>Entregue</button>
   </div>
-  <div id="sheetRows"></div>
-  <div class="sheet-bottom-space"></div>
+  <div id="stopSheetRows"></div>
+</div>
+
+<!-- ======================= MENU ⋮ ======================= -->
+<div class="menu-backdrop" id="menuBackdrop"></div>
+<div class="menu-sheet" id="menuSheet">
+  <button class="menu-item" id="miReoptimize"><span class="ico">🔄</span><span class="txt">Reotimizar rota</span></button>
+  <button class="menu-item" id="miRenumber"><span class="ico">#️⃣</span><span class="txt">Redefinir IDs de parada</span></button>
+  <button class="menu-item" id="miToggleLine"><span class="ico">〰️</span><span class="txt">Ocultar linha da rota</span></button>
+  <button class="menu-item" id="miImport"><span class="ico">📄</span><span class="txt">Importar planilha</span></button>
+  <button class="menu-item" id="miExport"><span class="ico">⬇️</span><span class="txt">Exportar rota (.xlsx)</span></button>
+  <button class="menu-item" id="miPrint"><span class="ico">🖨️</span><span class="txt">Imprimir rota</span></button>
+  <button class="menu-item" id="miSettings"><span class="ico">⚙️</span><span class="txt">Configurações</span></button>
+  <button class="menu-item danger" id="miClear"><span class="ico">🗑️</span><span class="txt">Remover todas as paradas</span></button>
+</div>
+
+<!-- ======================= CONFIGURAÇÕES ======================= -->
+<div class="modal-backdrop" id="settingsBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Configurações</h3>
+      <button class="close-x" id="settingsClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Tema</label>
+        <div class="seg" id="themeSeg">
+          <button class="seg-opt active" data-theme="shopee">Laranja Shopee</button>
+          <button class="seg-opt" data-theme="spoke">Azul Spoke</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Ponto de partida da rota</label>
+        <div class="seg" id="startSeg">
+          <button class="seg-opt active" data-start="gps">GPS</button>
+          <button class="seg-opt" data-start="fixed">Endereço fixo</button>
+          <button class="seg-opt" data-start="first">1ª parada</button>
+        </div>
+      </div>
+      <div class="field" id="startAddressField" style="display:none">
+        <label>Endereço de partida (galpão/base)</label>
+        <input type="text" id="startAddress" placeholder="Rua, número, cidade">
+      </div>
+      <div class="field">
+        <label>Chave do Google Maps (opcional)</label>
+        <input type="text" id="googleKey" placeholder="Cole aqui para usar o mapa e a precisão do Google">
+        <div class="hint-box" style="margin-top:8px">
+          Sem chave o app usa o mapa gratuito do OpenStreetMap. Com uma chave do Google Maps
+          o mapa e a busca de endereço passam a ser os mesmos do Spoke — é o caminho para
+          precisão máxima em condomínio e loteamento novo.
+        </div>
+      </div>
+      <div class="field">
+        <label>Velocidade média no trânsito (km/h)</label>
+        <input type="number" id="avgSpeed" min="5" max="80" step="1">
+      </div>
+      <div class="field">
+        <label>Tempo parado por entrega (minutos)</label>
+        <input type="number" id="stopMinutes" min="0" max="30" step="0.1">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="settingsCancel">Cancelar</button>
+      <button class="btn btn-primary" id="settingsSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================= EDITAR PARADA ======================= -->
+<div class="modal-backdrop" id="editBackdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Editar parada</h3>
+      <button class="close-x" id="editClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Endereço (rua, número, complemento)</label>
+        <input type="text" id="editAddress">
+      </div>
+      <div class="field">
+        <label>Bairro</label>
+        <input type="text" id="editNeighborhood">
+      </div>
+      <div class="field">
+        <label>SPX TN</label>
+        <input type="text" id="editTn">
+      </div>
+      <div class="hint-box">Se você mudar o endereço, o app procura a nova localização no mapa.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="editCancel">Cancelar</button>
+      <button class="btn btn-primary" id="editSave">Salvar</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script src="vendor/xlsx.full.min.js"></script>
 <script src="vendor/leaflet.js"></script>
-<script src="js/common.js"></script>
-<script src="js/import.js"></script>
+<script src="js/core/utils.js"></script>
+<script src="js/core/columns.js"></script>
+<script src="js/core/settings.js"></script>
+<script src="js/core/sheet-io.js"></script>
+<script src="js/route/model.js"></script>
+<script src="js/route/optimizer.js"></script>
+<script src="js/route/geocoder.js"></script>
+<script src="js/route/map.js"></script>
+<script src="js/route/ui-import.js"></script>
+<script src="js/route/ui-list.js"></script>
+<script src="js/route/ui-stop.js"></script>
+<script src="js/route/app.js"></script>
 </body>
 </html>

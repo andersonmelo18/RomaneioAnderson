@@ -1,0 +1,42 @@
+/* ======================================================================
+   Roteirizador SPX — página "Criar Planilha"
+====================================================================== */
+
+.builder-main{max-width:1120px;margin:0 auto;padding:20px 16px 60px;}
+
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px;}
+@media (max-width:760px){.form-grid{grid-template-columns:1fr;}}
+
+textarea#romaneioInput{
+  width:100%;min-height:210px;border:1.5px solid var(--border-2);border-radius:10px;
+  padding:14px;font-size:12.5px;font-family:ui-monospace,'SFMono-Regular',Consolas,monospace;
+  resize:vertical;line-height:1.55;background:var(--surface);color:var(--text);
+}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 0;}
+
+.add-row-grid{display:grid;grid-template-columns:.7fr 1.4fr 2.4fr 1.3fr 1fr auto;gap:8px;align-items:end;}
+@media (max-width:900px){.add-row-grid{grid-template-columns:1fr 1fr;}}
+
+.table-wrap{max-height:520px;overflow:auto;border:1px solid var(--border);border-radius:10px;}
+table.preview{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.preview th{
+  background:var(--surface-2);text-align:left;padding:9px 10px;color:var(--text-2);
+  font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;
+  border-bottom:2px solid var(--border);position:sticky;top:0;z-index:1;
+}
+table.preview td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
+table.preview input,table.preview select{
+  width:100%;border:1px solid transparent;background:transparent;padding:5px 6px;
+  border-radius:6px;font-size:12.5px;color:var(--text);
+}
+table.preview input:hover{border-color:var(--border-2);}
+table.preview input:focus,table.preview select:focus{border-color:var(--primary);background:var(--surface);outline:none;}
+.row-del{background:none;border:none;color:var(--danger);font-size:15px;font-weight:700;padding:2px 6px;}
+.stat-pill{
+  display:inline-flex;align-items:center;gap:6px;background:var(--primary-light);
+  color:var(--primary-dark);font-weight:600;font-size:12.5px;padding:6px 12px;
+  border-radius:var(--radius-pill);margin-right:8px;
+}
+.builder-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+.builder-head .actions{display:flex;gap:8px;flex-wrap:wrap;}

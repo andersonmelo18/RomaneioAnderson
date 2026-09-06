@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="shopee">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roteirizador SPX — Teste de precisão</title>
+<link rel="stylesheet" href="css/theme.css">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/builder.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="box">SPX</span> Roteirizador</div>
+  <div class="topbar-right">
+    <div class="tabs">
+      <a class="tab-btn" href="index.html">Rota</a>
+      <a class="tab-btn" href="criar-planilha.html">Criar planilha</a>
+      <a class="tab-btn active" href="teste-precisao.html">Teste de precisão</a>
+    </div>
+  </div>
+</div>
+
+<div class="builder-main">
+
+  <div class="card">
+    <h2>Qual é a precisão da busca gratuita de endereços?</h2>
+    <div class="sub">
+      Sua planilha oficial já traz a coordenada certa de cada endereço. Esta página usa
+      esses valores como gabarito: ela procura os mesmos endereços na busca gratuita e
+      mede, em metros, o quanto cada resultado erra.
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Planilha oficial (com Latitude e Longitude)</label>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+      </div>
+      <div class="field">
+        <label>Quantos endereços testar</label>
+        <select id="sampleSize">
+          <option value="8">8 (mais rápido, ~15 s)</option>
+          <option value="15" selected>15 (~30 s)</option>
+          <option value="30">30 (~1 min)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <button class="btn btn-primary btn-block" id="btnRun" disabled>▶ Rodar teste</button>
+      </div>
+    </div>
+
+    <div class="hint-box">
+      O teste respeita o limite do serviço gratuito (uma busca por segundo), por isso demora
+      alguns segundos. Precisa de internet. Se você colocou uma chave do Google nas
+      configurações, o teste usa a busca do Google no lugar da gratuita.
+    </div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none">
+    <div class="builder-head">
+      <div>
+        <h2 style="margin-bottom:8px">Resultado</h2>
+        <span class="stat-pill" id="pillProgress">—</span>
+        <span class="stat-pill" id="pillMedian">—</span>
+        <span class="stat-pill" id="pillWorst">—</span>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="preview">
+        <thead>
+          <tr>
+            <th>Endereço testado</th>
+            <th style="width:120px">Situação</th>
+            <th style="width:110px">Erro</th>
+            <th style="width:140px">Observação</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+    <div class="hint-box" id="verdict"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="js/core/utils.js"></script>
+<script src="js/core/columns.js"></script>
+<script src="js/core/settings.js"></script>
+<script src="js/core/sheet-io.js"></script>
+<script src="js/route/geocoder.js"></script>
+<script>
+(function (SPX) {
+  'use strict';
+  var U = SPX.utils;
+  var truth = [];
+
+  function el(id) { return document.getElementById(id); }
+
+  el('fileInput').addEventListener('change', function (ev) {
+    var file = ev.target.files[0];
+    if (!file) return;
+    SPX.sheetIO.readFile(file).then(function (rows) {
+      var map = SPX.columns.detect(rows[0]);
+      if (map.address === undefined || map.lat === undefined || map.lon === undefined) {
+        U.toast('Essa planilha não tem Latitude/Longitude — use a planilha oficial do app.', 5000);
+        return;
+      }
+      var seen = {};
+      rows.slice(1).forEach(function (r) {
+        var address = String(r[map.address] || '').trim();
+        var lat = parseFloat(r[map.lat]);
+        var lon = parseFloat(r[map.lon]);
+        if (!address || isNaN(lat) || isNaN(lon)) return;
+        var core = U.addressCore(address);
+        var key = U.normalizeKey(core);
+        if (seen[key]) return;
+        var parts = U.splitAddress(address);
+        seen[key] = true;
+        truth.push({
+          core: core, street: parts.street, number: parts.number,
+          neighborhood: map.neighborhood !== undefined ? r[map.neighborhood] : '',
+          city: map.city !== undefined ? r[map.city] : 'João Pessoa',
+          zip: map.zip !== undefined ? r[map.zip] : '',
+          lat: lat, lon: lon
+        });
+      });
+      el('btnRun').disabled = truth.length === 0;
+      U.toast(truth.length + ' endereços com coordenada de gabarito carregados.');
+    }).catch(function (e) { U.toast(e.message || 'Erro ao ler a planilha.'); });
+  });
+
+  el('btnRun').addEventListener('click', run);
+
+  function pickSample(n) {
+    var copy = truth.slice();
+    for (var i = copy.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = copy[i]; copy[i] = copy[j]; copy[j] = t;
+    }
+    return copy.slice(0, Math.min(n, copy.length));
+  }
+
+  async function run() {
+    var n = Number(el('sampleSize').value);
+    var sample = pickSample(n);
+    var center = { lat: U.median(truth.map(function (t) { return t.lat; })),
+                   lon: U.median(truth.map(function (t) { return t.lon; })) };
+
+    el('resultCard').style.display = 'block';
+    el('resultBody').innerHTML = '';
+    el('btnRun').disabled = true;
+
+    var errors = [];
+    var accepted = 0, rejected = 0;
+    /* As outras paradas do gabarito servem de âncora, igual ao que a rota real
+       usa: um resultado longe de qualquer parada conhecida é suspeito mesmo
+       dentro do raio largo da rota inteira (é assim que se pega uma rua
+       homônima do outro lado da cidade). */
+    var anchors = truth.map(function (x) { return { lat: x.lat, lon: x.lon }; });
+
+    for (var i = 0; i < sample.length; i++) {
+      var t = sample[i];
+      el('pillProgress').textContent = 'testando ' + (i + 1) + '/' + sample.length;
+
+      var query = { street: t.street, number: t.number, neighborhood: t.neighborhood,
+                    city: t.city || 'João Pessoa', zip: t.zip };
+      var cand = await SPX.geocoder.nominatimLookup(query);
+      var verdict = cand ? SPX.geocoder.validate(cand, query, center, 20, anchors) : { ok: false, reason: 'não encontrado' };
+
+      if (!verdict.ok) {
+        await U.sleep(1100);
+        cand = await SPX.geocoder.photonLookup(query, center);
+        verdict = cand ? SPX.geocoder.validate(cand, query, center, 20, anchors) : { ok: false, reason: 'não encontrado' };
+      }
+
+      var row;
+      if (verdict.ok) {
+        var meters = U.haversine(t.lat, t.lon, cand.lat, cand.lon) * 1000;
+        errors.push(meters);
+        accepted++;
+        var cls = meters <= 60 ? 'var(--success)' : meters <= 200 ? 'var(--warn)' : 'var(--danger)';
+        row = '<tr><td>' + U.escapeHtml(t.core) + '</td>' +
+          '<td style="color:var(--success);font-weight:600">aceito</td>' +
+          '<td style="color:' + cls + ';font-weight:700">' + Math.round(meters) + ' m</td>' +
+          '<td>' + (cand.houseNumber ? 'com número' : 'nível de rua') + '</td></tr>';
+      } else {
+        rejected++;
+        row = '<tr><td>' + U.escapeHtml(t.core) + '</td>' +
+          '<td style="color:var(--text-3);font-weight:600">recusado</td>' +
+          '<td>—</td><td>' + U.escapeHtml(verdict.reason || '') + '</td></tr>';
+      }
+      el('resultBody').insertAdjacentHTML('beforeend', row);
+
+      var med = U.median(errors);
+      el('pillMedian').textContent = med === null ? 'sem acertos' : 'erro mediano ' + Math.round(med) + ' m';
+      el('pillWorst').textContent = errors.length ? 'pior ' + Math.round(Math.max.apply(null, errors)) + ' m' : '—';
+
+      if (i < sample.length - 1) await U.sleep(1100);
+    }
+
+    el('pillProgress').textContent = accepted + ' aceitos · ' + rejected + ' recusados';
+    el('btnRun').disabled = false;
+
+    var med = U.median(errors);
+    var txt;
+    if (med === null) {
+      txt = '<b>Nenhum endereço foi confirmado.</b> Nessa região a busca gratuita não tem os ' +
+        'números das casas cadastrados. Para pino exato aqui, o caminho é usar uma chave do ' +
+        'Google Maps nas configurações — ou importar sempre a planilha oficial, que já vem com as coordenadas.';
+    } else if (med <= 60) {
+      txt = '<b>Boa precisão:</b> metade dos endereços ficou a menos de ' + Math.round(med) +
+        ' m do ponto real — isso é a mesma quadra, dá para entregar sem problema.';
+    } else if (med <= 200) {
+      txt = '<b>Precisão média:</b> erro típico de ' + Math.round(med) + ' m, ou seja, acerta a rua ' +
+        'mas nem sempre o prédio. Serve para montar a ordem da rota; para chegar na porta, use o botão Navegar.';
+    } else {
+      txt = '<b>Precisão baixa:</b> erro típico de ' + Math.round(med) + ' m. Vale usar uma chave do ' +
+        'Google Maps nas configurações, ou trabalhar com a planilha oficial, que já traz as coordenadas certas.';
+    }
+    txt += '<br><br>Recusados são endereços que o app <b>não</b> marca no mapa de propósito — ' +
+      'é o filtro que impede o pino de aparecer no lugar errado.';
+    el('verdict').innerHTML = txt;
+  }
+})(window.SPX = window.SPX || {});
+</script>
+</body>
+</html>

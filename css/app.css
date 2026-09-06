@@ -1,0 +1,119 @@
+/* ======================================================================
+   Roteirizador SPX — base compartilhada pelas duas páginas
+====================================================================== */
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior:none;
+}
+a{color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+h1,h2,h3,h4{margin:0;}
+
+/* ---------- Barra superior ---------- */
+.topbar{
+  background:var(--primary);
+  color:var(--primary-contrast);
+  padding:10px 16px;
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  box-shadow:var(--shadow-1);
+  position:relative;z-index:600;
+  flex-shrink:0;
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:.2px;}
+.brand .box{
+  width:30px;height:30px;border-radius:8px;background:#fff;color:var(--primary);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;
+}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.tabs{display:flex;background:rgba(255,255,255,.2);padding:3px;border-radius:var(--radius-pill);gap:2px;}
+.tab-btn{
+  display:inline-block;text-decoration:none;border:none;background:transparent;
+  color:#fff;padding:8px 14px;border-radius:var(--radius-pill);
+  font-weight:600;font-size:13px;opacity:.9;transition:.15s;white-space:nowrap;
+}
+.tab-btn.active{background:#fff;color:var(--primary-dark);opacity:1;box-shadow:var(--shadow-1);}
+.icon-btn{
+  width:36px;height:36px;border-radius:50%;border:none;background:rgba(255,255,255,.18);
+  color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;transition:.15s;
+}
+.icon-btn:hover{background:rgba(255,255,255,.3);}
+
+/* ---------- Botões ---------- */
+.btn{
+  border:none;border-radius:10px;padding:11px 18px;font-weight:600;font-size:14px;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.12s;
+  background:var(--surface-2);color:var(--text);
+}
+.btn:hover{filter:brightness(.96);}
+.btn-primary{background:var(--primary);color:var(--primary-contrast);}
+.btn-primary:hover{background:var(--primary-dark);filter:none;}
+.btn-outline{background:var(--surface);color:var(--primary);border:1.5px solid var(--border-2);}
+.btn-outline:hover{background:var(--primary-light);}
+.btn-ghost{background:var(--surface-2);color:var(--text);}
+.btn-success{background:var(--success);color:#fff;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-sm{padding:8px 12px;font-size:12.5px;border-radius:8px;}
+.btn-lg{padding:14px 22px;font-size:15px;border-radius:12px;}
+.btn-block{width:100%;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.link-btn{background:none;border:none;color:var(--primary);font-weight:600;font-size:14px;padding:8px;}
+
+/* ---------- Cartões e formulários ---------- */
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow-1);padding:20px;margin-bottom:16px;}
+.card h2{font-size:18px;margin-bottom:4px;}
+.card .sub{color:var(--text-2);font-size:13.5px;margin-bottom:16px;}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--text-2);margin-bottom:6px;}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 12px;border:1.5px solid var(--border-2);border-radius:9px;
+  font-size:13.5px;background:var(--surface);color:var(--text);
+}
+.field input:focus,.field select:focus,textarea:focus{outline:none;border-color:var(--primary);}
+.hint-box{
+  background:var(--surface-2);border:1px solid var(--border);color:var(--text-2);
+  border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.55;margin-top:12px;
+}
+.hint-box b{color:var(--text);}
+.kbd{background:var(--border);border-radius:4px;padding:1px 6px;font-size:11px;font-family:ui-monospace,Consolas,monospace;color:var(--text);}
+
+/* ---------- Toast ---------- */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);
+  background:#323232;color:#fff;padding:12px 20px;border-radius:8px;
+  font-size:13.5px;font-weight:500;z-index:3000;box-shadow:var(--shadow-3);
+  opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;
+  max-width:92vw;text-align:center;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ---------- Modal ---------- */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(32,33,36,.5);z-index:2000;
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+.modal-backdrop.show{display:flex;}
+.modal{
+  background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-3);
+  width:100%;max-width:460px;max-height:86vh;overflow-y:auto;
+}
+.modal-head{padding:20px 22px 6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.modal-head h3{font-size:18px;}
+.modal-body{padding:12px 22px 4px;}
+.modal-body .field{margin-bottom:14px;}
+.modal-foot{padding:14px 22px 20px;display:flex;justify-content:flex-end;gap:10px;}
+.close-x{
+  background:var(--surface-2);border:none;border-radius:50%;width:32px;height:32px;
+  font-size:15px;color:var(--text-2);flex-shrink:0;display:flex;align-items:center;justify-content:center;
+}
+.seg{display:flex;gap:8px;}
+.seg-opt{
+  flex:1;border:1.5px solid var(--border-2);background:var(--surface);border-radius:9px;
+  padding:10px;font-size:13px;font-weight:600;color:var(--text-2);
+}
+.seg-opt.active{border-color:var(--primary);background:var(--primary-light);color:var(--primary-dark);}

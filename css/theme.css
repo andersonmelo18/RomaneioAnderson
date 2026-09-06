@@ -1,0 +1,52 @@
+/* ======================================================================
+   Roteirizador SPX — temas
+   Tema padrão: laranja Shopee. Tema alternativo: azul Spoke.
+   Trocado por data-theme no <html> (ver js/core/settings.js).
+====================================================================== */
+
+:root,
+html[data-theme="shopee"]{
+  --primary:#EE4D2D;
+  --primary-dark:#D6431F;
+  --primary-light:#FFF1EE;
+  --primary-contrast:#FFFFFF;
+  --pin:#EE4D2D;
+}
+
+html[data-theme="spoke"]{
+  --primary:#1A73E8;
+  --primary-dark:#1557B0;
+  --primary-light:#E8F0FE;
+  --primary-contrast:#FFFFFF;
+  --pin:#1A73E8;
+}
+
+:root{
+  /* neutros e status (iguais nos dois temas) */
+  --bg:#F1F3F4;
+  --surface:#FFFFFF;
+  --surface-2:#F8F9FA;
+  --text:#202124;
+  --text-2:#5F6368;
+  --text-3:#80868B;
+  --border:#E8EAED;
+  --border-2:#DADCE0;
+
+  --success:#1E8E3E;
+  --success-light:#E6F4EA;
+  --danger:#D93025;
+  --danger-light:#FCE8E6;
+  --warn:#E37400;
+  --warn-light:#FEF7E0;
+
+  --radius:12px;
+  --radius-lg:20px;
+  --radius-pill:999px;
+
+  --shadow-1:0 1px 3px rgba(60,64,67,.16);
+  --shadow-2:0 2px 10px rgba(60,64,67,.18);
+  --shadow-3:0 8px 28px rgba(60,64,67,.26);
+
+  --sheet-max:520px;
+  --panel-w:420px;
+}
