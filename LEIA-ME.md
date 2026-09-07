@@ -28,6 +28,12 @@ qual seria a próxima da sequência, mas deixa continuar do jeito que você pref
 Menu **⋮**: reotimizar, redefinir IDs, mostrar/ocultar a linha da rota, importar outra
 planilha, exportar a rota otimizada em .xlsx, imprimir e configurações.
 
+A linha azul que liga as paradas segue as ruas de verdade (usa o serviço público
+OSRM, o mesmo tipo de motor de rotas dos apps de entrega) — aparece assim que a
+rota é otimizada. Se não tiver internet no momento ou o serviço estiver fora do
+ar, o app não trava esperando: mostra na hora uma linha reta ligando as paradas
+na ordem, e troca pela linha das ruas assim que conseguir buscar.
+
 ### Aba "Criar planilha"
 
 Cole o romaneio (com ou sem a coluna `Stop`), confira a prévia e:
@@ -87,6 +93,7 @@ js/route/model.js        Estado da rota: paradas, ordem, IDs, status
 js/route/optimizer.js    Ordem de visita (vizinho mais próximo + 2-opt) e horários
 js/route/geocoder.js     Busca de endereço + filtro de sanidade
 js/route/map.js          Mapa (Leaflet/OSM ou Google, conforme a chave)
+js/route/routing.js      Linha da rota seguindo as ruas de verdade (OSRM)
 js/route/ui-import.js    Wizard de importação
 js/route/ui-list.js      Lista de paradas
 js/route/ui-stop.js      Painel de detalhe da parada

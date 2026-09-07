@@ -370,6 +370,29 @@
       bucket.forEach(function (a) { located += a.members.length; });
     });
 
+    /* Segunda passada, sem nenhuma busca nova: ruas difíceis de achar que
+       calharam de aparecer BEM NO INÍCIO da planilha (antes de qualquer
+       parada da rota ter sido confirmada) não tinham nenhuma âncora ainda
+       pra estimativa por bairro funcionar. Agora que a rota inteira já foi
+       processada, tenta de novo com tudo que já se sabe — é assim que se
+       evita ficar com uma sequência de "sem localização" só por causa da
+       ordem em que os endereços vieram na planilha. */
+    var stragglers = stops.filter(function (s) { return s.lat === null || s.lon === null; });
+    if (stragglers.length) {
+      var finalAnchors = stops
+        .filter(function (s) { return s.lat !== null && s.lon !== null && s.geoPrecision !== 'estimado'; })
+        .map(function (s) { return { lat: s.lat, lon: s.lon, neighborhood: s.neighborhood }; });
+      var finalCenter = center || referenceCenter(stops.filter(function (s) { return s.geoPrecision !== 'estimado'; }));
+      if (finalAnchors.length) {
+        stragglers.forEach(function (s) {
+          var est = bairroCentroid(finalAnchors, s.neighborhood) || finalCenter;
+          if (!est) return;
+          s.lat = est.lat; s.lon = est.lon; s.geoSource = 'estimate'; s.geoPrecision = 'estimado';
+          located++; failed--;
+        });
+      }
+    }
+
     if (opts.onResult) opts.onResult();
     return { located: located, failed: failed, groups: order.length, provider: useGoogle ? 'google' : 'osm' };
   }

@@ -12,6 +12,7 @@
   var mode = 'empty';          // 'empty' | 'planning' | 'preview' | 'active'
   var refining = false;
   var geoToken = 0;
+  var routeLineToken = 0;
   var lastSavings = null;
 
   var el = {};
@@ -376,13 +377,24 @@
     mapView.setPins(pins);
 
     var showLine = SPX.settings.get('showRouteLine') && mode !== 'planning';
+    routeLineToken++;
     if (showLine) {
       var pts = [];
       if (model.startPoint) pts.push({ lat: model.startPoint.lat, lon: model.startPoint.lon });
       model.ordered().forEach(function (s) {
         if (s.lat !== null && s.lon !== null) pts.push({ lat: s.lat, lon: s.lon });
       });
+      /* Desenha na hora a linha reta (nunca deixa sem linha esperando a
+         internet) e, se der certo, troca pela linha seguindo as ruas de
+         verdade assim que o serviço de rotas responder. */
       mapView.setRoute(pts);
+      if (SPX.fetchRoadRoute && pts.length >= 2) {
+        var myToken = routeLineToken;
+        SPX.fetchRoadRoute(pts).then(function (roadPts) {
+          if (myToken !== routeLineToken || !mapView) return; // tela mudou nesse meio tempo
+          if (roadPts && roadPts.length >= 2) mapView.setRoute(roadPts);
+        });
+      }
     } else {
       mapView.setRoute(null);
     }
