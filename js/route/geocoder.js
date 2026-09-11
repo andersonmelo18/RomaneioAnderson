@@ -24,7 +24,9 @@
   function nominatimLookup(q) {
     var params = new URLSearchParams({
       format: 'json', limit: '1', countrycodes: 'br', addressdetails: '1',
-      city: q.city || 'João Pessoa', state: 'Paraíba', country: 'Brasil'
+      city: q.city || SPX.settings.get('city'),
+      state: q.state || U.stateName(SPX.settings.get('state')),
+      country: 'Brasil'
     });
     /* O Nominatim espera "número nome-da-rua" no campo street. */
     params.set('street', q.number ? (q.number + ' ' + q.street) : q.street);
@@ -49,7 +51,8 @@
 
   /* -------------------- provedor gratuito: Photon (reserva) -------------------- */
   function photonLookup(q, center) {
-    var text = [q.number ? (q.street + ' ' + q.number) : q.street, q.city || 'João Pessoa', 'Paraíba'].join(', ');
+    var text = [q.number ? (q.street + ' ' + q.number) : q.street,
+      q.city || SPX.settings.get('city'), q.state || U.stateName(SPX.settings.get('state'))].join(', ');
     var params = new URLSearchParams({ q: text, limit: '3', lang: 'pt' });
     if (center) { params.set('lat', String(center.lat)); params.set('lon', String(center.lon)); }
 
@@ -85,7 +88,8 @@
     return new Promise(function (resolve) {
       var geocoder = new google.maps.Geocoder();
       var text = [q.number ? (q.street + ', ' + q.number) : q.street,
-        q.neighborhood, q.city || 'João Pessoa', 'PB', 'Brasil'].filter(Boolean).join(', ');
+        q.neighborhood, q.city || SPX.settings.get('city'),
+        q.state || SPX.settings.get('state'), 'Brasil'].filter(Boolean).join(', ');
       geocoder.geocode({
         address: text,
         region: 'br',
@@ -188,6 +192,27 @@
     return { lat: U.median(lats), lon: U.median(lons) };
   }
 
+  /* Processa "items" com no máximo "limit" chamadas de "worker" em paralelo
+     ao mesmo tempo — é isso que faz o mapa preencher com vários pinos de
+     uma vez em vez de um por um. Nenhum provedor além do Nominatim exige
+     esperar a vez; não tem por que tratar todo mundo como se exigisse. */
+  function mapPool(items, limit, worker) {
+    return new Promise(function (resolve) {
+      if (!items.length) return resolve();
+      var next = 0, done = 0;
+      function runOne() {
+        var i = next++;
+        if (i >= items.length) return;
+        Promise.resolve(worker(items[i], i)).catch(function () {}).then(function () {
+          done++;
+          if (done >= items.length) resolve();
+          else runOne();
+        });
+      }
+      for (var k = 0; k < Math.min(limit, items.length); k++) runOne();
+    });
+  }
+
   /* -------------------- rotina principal -------------------- */
   /* Busca a coordenada das paradas que estão sem. Agrupa por rua+número,
      então um prédio com 25 pacotes gasta uma busca só. */
@@ -229,45 +254,65 @@
       .filter(function (s) { return s.lat !== null && s.lon !== null; })
       .map(function (s) { return { lat: s.lat, lon: s.lon, neighborhood: s.neighborhood }; });
 
-    /* Só o Nominatim exige ~1 busca/s; em vez de dormir um tempo fixo antes E
-       depois de cada grupo (o que deixava até rota pequena lenta), esperamos
-       só o necessário desde a ÚLTIMA chamada ao Nominatim. O Photon é outro
-       serviço — não faz sentido esperar a cota do Nominatim antes de chamá-lo. */
+    /* Só o Nominatim exige ~1 busca/s no total. Em vez de fazer TODA busca
+       esperar essa cota (o que deixava até uma rota pequena lenta, um
+       endereço de cada vez), ele agora só entra como reforço: todo grupo
+       tenta primeiro o Photon, que não tem esse limite e roda em paralelo.
+       O Nominatim fica de reserva, numa fila única que respeita o 1/s dele,
+       só para os grupos que o Photon não resolveu — é isso que faz a
+       maioria dos pinos aparecer no mapa quase instantaneamente, sobrando a
+       fila lenta apenas para os casos difíceis de verdade. */
     var lastNominatimAt = 0;
-    async function throttledNominatim(query) {
+    async function rawNominatim(query) {
       var wait = 1000 - (Date.now() - lastNominatimAt);
       if (wait > 0) await U.sleep(wait);
       var r = await nominatimLookup(query);
       lastNominatimAt = Date.now();
       return r;
     }
+    var nominatimChain = Promise.resolve();
+    function queuedNominatim(query) {
+      var p = nominatimChain.then(function () { return rawNominatim(query); });
+      nominatimChain = p.catch(function () { return null; });
+      return p;
+    }
 
-    for (var g = 0; g < order.length; g++) {
-      if (isCancelled()) return { cancelled: true, located: 0, failed: 0, groups: order.length };
-      var members = groups[order[g]];
+    /* Tenta os provedores disponíveis para uma consulta e devolve o primeiro
+       resultado que passar no filtro de sanidade. Com chave do Google, só
+       ele entra (rápido, sem fila). Sem chave: Photon primeiro (paralelo);
+       só espera na fila do Nominatim se o Photon não resolver. */
+    async function lookupBest(query) {
+      if (useGoogle) {
+        var g = await googleLookup(query);
+        return { candidate: g, verdict: g ? validate(g, query, center, maxKm, anchors) : { ok: false, reason: 'não encontrado' } };
+      }
+      var p = await photonLookup(query, center);
+      var pv = p ? validate(p, query, center, maxKm, anchors) : { ok: false, reason: 'não encontrado' };
+      if (pv.ok) return { candidate: p, verdict: pv };
+
+      var n = await queuedNominatim(query);
+      var nv = n ? validate(n, query, center, maxKm, anchors) : { ok: false, reason: 'não encontrado' };
+      return nv.ok ? { candidate: n, verdict: nv } : { candidate: p, verdict: pv };
+    }
+
+    var doneCount = 0;
+
+    async function processGroup(key) {
+      if (isCancelled()) return;
+      var members = groups[key];
       var rep = members[0];
-      onProgress(g + 1, order.length, pending.length);
 
       var query = {
         street: rep.street || rep.address,
         number: rep.number,
         neighborhood: rep.neighborhood,
-        city: rep.city || 'João Pessoa',
+        city: rep.city || SPX.settings.get('city'),
         zip: rep.zip
       };
 
-      var candidate = null;
-      if (useGoogle) {
-        candidate = await googleLookup(query);
-      } else {
-        candidate = await throttledNominatim(query);
-        var check = candidate ? validate(candidate, query, center, maxKm, anchors) : { ok: false };
-        if (!check.ok) {
-          candidate = await photonLookup(query, center);
-        }
-      }
-
-      var verdict = candidate ? validate(candidate, query, center, maxKm, anchors) : { ok: false, reason: 'não encontrado' };
+      var first = await lookupBest(query);
+      var candidate = first.candidate;
+      var verdict = first.verdict;
       var precisionOverride = null;
 
       /* O serviço às vezes não acha o NÚMERO exato da casa, mas acha a rua.
@@ -275,17 +320,10 @@
          meio da rua certa é bem melhor do que nenhum pino. */
       if (!verdict.ok && query.number) {
         var streetQuery = { street: query.street, number: '', neighborhood: query.neighborhood, city: query.city, zip: '' };
-        var streetCandidate = useGoogle
-          ? await googleLookup(streetQuery)
-          : await throttledNominatim(streetQuery);
-        var streetCheck = streetCandidate ? validate(streetCandidate, streetQuery, center, maxKm, anchors) : { ok: false };
-        if (!streetCheck.ok && !useGoogle) {
-          streetCandidate = await photonLookup(streetQuery, center);
-          streetCheck = streetCandidate ? validate(streetCandidate, streetQuery, center, maxKm, anchors) : { ok: false };
-        }
-        if (streetCheck.ok) {
-          candidate = streetCandidate;
-          verdict = streetCheck;
+        var second = await lookupBest(streetQuery);
+        if (second.verdict.ok) {
+          candidate = second.candidate;
+          verdict = second.verdict;
           precisionOverride = 'approx';
         }
       }
@@ -335,7 +373,17 @@
         center = { lat: accepted[0].lat, lon: accepted[0].lon };
         maxKm = 25;
       }
+
+      doneCount++;
+      onProgress(doneCount, order.length, pending.length);
     }
+
+    /* Até 6 grupos em paralelo — rápido o bastante para sentir instantâneo
+       em rotas do tamanho normal, sem exagerar na carga dos serviços
+       públicos gratuitos (o Nominatim continua limitado a 1/s pela fila
+       acima, não importa quantos grupos estejam rodando ao mesmo tempo). */
+    await mapPool(order, 6, processGroup);
+    if (isCancelled()) return { cancelled: true, located: 0, failed: 0, groups: order.length };
 
     /* Última checagem: se RUAS DIFERENTES devolveram a MESMA coordenada, o
        serviço caiu num ponto genérico (centro do bairro). Desfaz esses pinos.

@@ -10,6 +10,8 @@
   var DEFAULTS = {
     theme: 'shopee',     // 'shopee' | 'spoke'
     googleKey: '',       // opcional: liga mapa e geocodificação do Google
+    city: 'João Pessoa', // cidade padrão usada na busca de endereço e no mapa
+    state: 'PB',         // UF padrão (sigla) usada na busca de endereço e no mapa
     avgSpeed: 22,        // km/h médios no trânsito urbano
     stopMinutes: 1.2,    // minutos parados por entrega (ritmo parecido com o do Spoke)
     startMode: 'gps',    // 'gps' | 'fixed' | 'first'

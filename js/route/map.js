@@ -71,9 +71,14 @@
   }
 
   /* ------------------------------ Leaflet ------------------------------ */
+  function defaultCenter() {
+    return U.stateCenter(SPX.settings.get('state'));
+  }
+
   function LeafletView(el, opts) {
+    var c = defaultCenter();
     this.map = L.map(el, { zoomControl: true, attributionControl: true })
-      .setView([-7.2050, -34.8700], 14);
+      .setView([c.lat, c.lon], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19, attribution: '&copy; OpenStreetMap'
     }).addTo(this.map);
@@ -160,8 +165,9 @@
   }
 
   function GoogleView(el, opts) {
+    var c = defaultCenter();
     this.map = new google.maps.Map(el, {
-      center: { lat: -7.2050, lng: -34.8700 }, zoom: 14,
+      center: { lat: c.lat, lng: c.lon }, zoom: 13,
       mapTypeControl: false, streetViewControl: false, fullscreenControl: false
     });
     this.markers = [];

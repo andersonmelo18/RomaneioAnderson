@@ -139,7 +139,7 @@
 
   function buildAoA() {
     recomputeStops();
-    var city = el('defaultCity').value.trim() || 'João Pessoa';
+    var city = el('defaultCity').value.trim() || SPX.settings.get('city');
     var atId = SPX.sheetIO.generateAtId(currentDate());
     var aoa = [SPX.sheetIO.EXPORT_HEADER];
     rows.forEach(function (r) {
@@ -154,6 +154,7 @@
     el('routeDate').value = today.getFullYear() + '-' +
       String(today.getMonth() + 1).padStart(2, '0') + '-' +
       String(today.getDate()).padStart(2, '0');
+    if (!el('defaultCity').value) el('defaultCity').value = SPX.settings.get('city');
 
     el('btnParse').addEventListener('click', function () {
       var parsed = parseRomaneio(el('romaneioInput').value);
@@ -199,7 +200,7 @@
       if (!rows.length) { U.toast('Processe o romaneio primeiro.'); return; }
       recomputeStops();
       var driver = (el('driverName').value || 'MOTORISTA').trim().toUpperCase();
-      var city = el('defaultCity').value.trim() || 'João Pessoa';
+      var city = el('defaultCity').value.trim() || SPX.settings.get('city');
       var payload = {
         label: U.fmtDatePtBr(currentDate()) + ' ' + driver,
         rows: rows.map(function (r) {

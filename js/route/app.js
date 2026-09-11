@@ -161,7 +161,7 @@
       if (!addr) {
         return Promise.resolve(first ? { lat: first.lat, lon: first.lon, label: 'Primeira parada da planilha' } : null);
       }
-      return SPX.geocoder.nominatimLookup({ street: addr, city: 'João Pessoa' })
+      return SPX.geocoder.nominatimLookup({ street: addr })
         .then(function (r) {
           return r ? { lat: r.lat, lon: r.lon, label: addr }
             : (first ? { lat: first.lat, lon: first.lon, label: 'Primeira parada da planilha' } : null);
@@ -307,6 +307,10 @@
       onOpen: openStop,
       onMove: function (uid, delta) {
         if (model.move(uid, delta)) { recomputeMetrics(); refresh(); }
+      },
+      onNavigate: function (uid) {
+        var s = model.byUid(uid);
+        if (s) U.openExternal(U.mapsDirectionsUrl(s));
       }
     });
   }
@@ -525,26 +529,39 @@
       var theme = document.querySelector('#themeSeg .seg-opt.active').getAttribute('data-theme');
       var startMode = document.querySelector('#startSeg .seg-opt.active').getAttribute('data-start');
       var prevKey = SPX.settings.get('googleKey');
+      var prevState = SPX.settings.get('state');
       var newKey = document.getElementById('googleKey').value.trim();
+      var newState = document.getElementById('settingsState').value;
+      var newCity = document.getElementById('settingsCity').value.trim();
 
       SPX.settings.set({
         theme: theme,
         startMode: startMode,
         startAddress: document.getElementById('startAddress').value.trim(),
+        city: newCity || SPX.settings.DEFAULTS.city,
+        state: newState || SPX.settings.DEFAULTS.state,
         googleKey: newKey,
-        avgSpeed: Number(document.getElementById('avgSpeed').value) || 22,
-        stopMinutes: Number(document.getElementById('stopMinutes').value) || 2
+        avgSpeed: clampNum(document.getElementById('avgSpeed').value, 5, 80, SPX.settings.DEFAULTS.avgSpeed),
+        stopMinutes: clampNum(document.getElementById('stopMinutes').value, 0, 30, SPX.settings.DEFAULTS.stopMinutes)
       });
       backdrop.classList.remove('show');
       if (model.stops.length) { recomputeMetrics(); }
       refresh();
 
-      if (newKey !== prevKey) {
-        U.toast('Configurações salvas. Recarregue a página para trocar o mapa.', 5000);
+      if (newKey !== prevKey || newState !== prevState) {
+        U.toast('Configurações salvas. Recarregue a página para atualizar o mapa.', 5000);
       } else {
         U.toast('Configurações salvas.');
       }
     });
+  }
+
+  /* Número dentro de [min,max]; usa "fallback" se o campo vier vazio ou não-numérico
+     (em vez de aceitar qualquer valor digitado, mesmo fora do intervalo esperado). */
+  function clampNum(v, min, max, fallback) {
+    var n = Number(v);
+    if (v === '' || isNaN(n)) return fallback;
+    return Math.min(max, Math.max(min, n));
   }
 
   function openSettings() {
@@ -557,6 +574,8 @@
     });
     document.getElementById('startAddressField').style.display = s.startMode === 'fixed' ? 'block' : 'none';
     document.getElementById('startAddress').value = s.startAddress || '';
+    document.getElementById('settingsCity').value = s.city || '';
+    document.getElementById('settingsState').value = s.state || 'PB';
     document.getElementById('googleKey').value = s.googleKey || '';
     document.getElementById('avgSpeed').value = s.avgSpeed;
     document.getElementById('stopMinutes').value = s.stopMinutes;

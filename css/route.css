@@ -60,6 +60,9 @@
 }
 .stop-row .info{flex:1;min-width:0;}
 .stop-row .street{font-weight:600;font-size:14px;line-height:1.3;color:var(--text);}
+.stop-row .street-nav{cursor:pointer;}
+.stop-row .street-nav:active{opacity:.6;}
+.stop-row .street-nav .nav-ico{font-size:11px;opacity:.55;}
 .stop-row .detail{color:var(--text-2);font-size:12.5px;margin-top:2px;line-height:1.35;}
 .stop-row .tn{color:var(--text-3);font-size:11.5px;margin-top:3px;display:flex;align-items:center;gap:5px;}
 .stop-row.delivered .street{color:var(--text-3);text-decoration:line-through;}
@@ -201,6 +204,8 @@
 .stop-sheet .handle{width:36px;height:4px;background:var(--border-2);border-radius:3px;margin:9px auto 0;}
 .stop-sheet .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 20px 4px;}
 .stop-sheet .head h2{font-size:22px;line-height:1.25;font-weight:700;}
+.stop-sheet .head h2.nav-link{cursor:pointer;color:var(--primary);text-underline-offset:3px;}
+.stop-sheet .head h2.nav-link:active{opacity:.7;}
 .stop-sheet .sub{padding:0 20px;color:var(--text-2);font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:16px;}
 .stop-sheet .sub .dot{width:9px;height:9px;border-radius:50%;background:var(--primary);flex-shrink:0;}
 .stop-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:0 20px 14px;}

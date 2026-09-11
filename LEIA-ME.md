@@ -109,6 +109,10 @@ Engrenagem no canto superior direito:
 
 - **Tema**: laranja Shopee ou azul Spoke.
 - **Ponto de partida**: GPS, endereço fixo (galpão) ou primeira parada.
+- **Cidade da rota** e **Estado (UF)**: usados como padrão na busca gratuita de endereço
+  (evita confundir com uma rua de mesmo nome em outra cidade) e como centro inicial do
+  mapa antes de importar qualquer planilha. O app não vem travado em nenhuma cidade —
+  troque aqui para rotear em qualquer lugar do Brasil.
 - **Chave do Google Maps** (opcional): liga mapa e precisão do Google.
 - **Velocidade média** e **tempo por entrega**: ajustam a estimativa de horário.
 

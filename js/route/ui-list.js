@@ -41,7 +41,8 @@
       '" data-uid="' + stop.uid + '">' +
       '<div class="num">' + U.escapeHtml(stop.id) + '</div>' +
       '<div class="info">' +
-      '<div class="street">' + U.escapeHtml(stop.street || stop.address) + '</div>' +
+      '<div class="street"><span class="street-nav" data-nav="' + stop.uid + '" title="Abrir no Google Maps">' +
+      U.escapeHtml(stop.street || stop.address) + ' <span class="nav-ico" aria-hidden="true">🧭</span></span></div>' +
       '<div class="detail">' + U.escapeHtml(detailLine(stop)) + '</div>' +
       (tags.length ? '<div class="tn">' + tags.join(' ') + '</div>' : '') +
       flag +
@@ -79,8 +80,15 @@
 
     container.querySelectorAll('.stop-row').forEach(function (row) {
       row.addEventListener('click', function (ev) {
-        if (ev.target.closest('[data-move]')) return;
+        if (ev.target.closest('[data-move]') || ev.target.closest('[data-nav]')) return;
         if (opts.onOpen) opts.onOpen(Number(row.getAttribute('data-uid')));
+      });
+    });
+
+    container.querySelectorAll('[data-nav]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (opts.onNavigate) opts.onNavigate(Number(el.getAttribute('data-nav')));
       });
     });
 

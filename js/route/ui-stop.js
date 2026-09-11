@@ -19,6 +19,11 @@
     backdrop.addEventListener('click', close);
     document.getElementById('stopSheetClose').addEventListener('click', close);
 
+    /* O próprio nome do endereço, em destaque no topo da ficha, também
+       manda direto pro Google Maps — não precisa procurar o botão. */
+    var titleEl = document.getElementById('stopSheetTitle');
+    if (titleEl) titleEl.addEventListener('click', function () { if (current) navigate(current); });
+
     sheet.addEventListener('click', function (ev) {
       var btn = ev.target.closest('[data-act]');
       if (!btn || !current) return;
@@ -48,21 +53,16 @@
   }
 
   /* Abre a navegação no Google Maps: por coordenada quando ela é confiável,
-     senão pelo texto do endereço (o próprio Google resolve na hora). */
+     senão pelo texto do endereço (o próprio Google resolve na hora). Troca a
+     própria janela em vez de abrir aba nova — window.open costuma ser
+     bloqueado quando o app está instalado como PWA em tela cheia, e mesmo
+     numa aba comum o celular entrega do mesmo jeito para o app do Maps. */
   function navigate(stop) {
-    var url;
-    if (stop.lat !== null && stop.lon !== null && stop.geoPrecision !== 'approx') {
-      url = 'https://www.google.com/maps/dir/?api=1&destination=' + stop.lat + ',' + stop.lon;
-    } else {
-      var q = [stop.address, stop.neighborhood, stop.city || 'João Pessoa', 'PB'].filter(Boolean).join(', ');
-      url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(q);
-    }
-    window.open(url, '_blank');
+    U.openExternal(U.mapsDirectionsUrl(stop));
   }
 
   function openMaps(stop) {
-    var q = [stop.address, stop.neighborhood, stop.city || 'João Pessoa', 'PB'].filter(Boolean).join(', ');
-    window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q), '_blank');
+    U.openExternal(U.mapsSearchUrl(stop));
   }
 
   function infoRow(icon, label, value, act) {

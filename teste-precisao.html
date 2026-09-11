@@ -123,7 +123,7 @@
         truth.push({
           core: core, street: parts.street, number: parts.number,
           neighborhood: map.neighborhood !== undefined ? r[map.neighborhood] : '',
-          city: map.city !== undefined ? r[map.city] : 'João Pessoa',
+          city: map.city !== undefined ? r[map.city] : SPX.settings.get('city'),
           zip: map.zip !== undefined ? r[map.zip] : '',
           lat: lat, lon: lon
         });
@@ -167,7 +167,7 @@
       el('pillProgress').textContent = 'testando ' + (i + 1) + '/' + sample.length;
 
       var query = { street: t.street, number: t.number, neighborhood: t.neighborhood,
-                    city: t.city || 'João Pessoa', zip: t.zip };
+                    city: t.city || SPX.settings.get('city'), zip: t.zip };
       var cand = await SPX.geocoder.nominatimLookup(query);
       var verdict = cand ? SPX.geocoder.validate(cand, query, center, 20, anchors) : { ok: false, reason: 'não encontrado' };
 
