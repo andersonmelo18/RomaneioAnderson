@@ -26,6 +26,52 @@
     return 'HOME';
   }
 
+  /* Fallback para quando o celular cola o romaneio sem preservar TAB/espaços
+     (tudo colado ou cada campo em uma linha própria). Em vez de contar
+     espaços, usa âncoras que não mudam: número da sequência + código de
+     rastreio "BR..." no início da parada, e HOME/OFFICE/OTHER no fim. */
+  var TN_RE = 'BR[0-9A-Z]{10,16}';
+  var TYPE_TAIL_RE = /(HOME|OFFICE|OTHER)\s*$/i;
+
+  function splitAddressNeighborhood(payload) {
+    payload = payload.trim().replace(/\s+/g, ' ');
+    /* Bairro normalmente é a última parte sem número (ex.: "Gramame").
+       Corta depois do último dígito do endereço; o resto vira bairro. */
+    var m = /^(.*\d)[\s,]*([^\d,]*)$/.exec(payload);
+    if (m && m[2].trim()) {
+      return { address: m[1].trim(), neighborhood: m[2].trim() };
+    }
+    return { address: payload, neighborhood: '' };
+  }
+
+  function parseAnchored(text) {
+    var anchorRe = new RegExp('(\\d+)\\s+(' + TN_RE + ')\\s+', 'gi');
+    var matches = [];
+    var m;
+    while ((m = anchorRe.exec(text))) {
+      matches.push({ seq: m[1], tn: m[2], start: m.index, contentStart: anchorRe.lastIndex });
+    }
+    var out = [];
+    matches.forEach(function (a, i) {
+      var end = (i + 1 < matches.length) ? matches[i + 1].start : text.length;
+      var payload = text.slice(a.contentStart, end).trim().replace(/\s+/g, ' ');
+      var type = 'HOME';
+      var tm = TYPE_TAIL_RE.exec(payload);
+      if (tm) { type = tm[1]; payload = payload.slice(0, tm.index).trim(); }
+      if (!payload) return;
+      var parts = splitAddressNeighborhood(payload);
+      out.push({
+        sequence: a.seq,
+        stop: '',
+        spxTn: a.tn,
+        address: parts.address,
+        neighborhood: parts.neighborhood,
+        addressType: normalizeType(type)
+      });
+    });
+    return out;
+  }
+
   function parseRomaneio(text) {
     var lines = text.split(/\r?\n/).map(function (l) { return l.trim(); })
       .filter(function (l) { return l.length; });
@@ -75,6 +121,16 @@
         addressType: normalizeType(type)
       });
     });
+
+    /* Se o texto colado perdeu os separadores (comum ao copiar pelo
+       celular), o parser normal deixa paradas de fora. Detecta isso
+       comparando com a quantidade de códigos de rastreio "BR..." no
+       texto todo e usa o parser por âncoras nesse caso. */
+    var tnCount = (text.match(new RegExp(TN_RE, 'gi')) || []).length;
+    if (tnCount && out.length < tnCount) {
+      var anchored = parseAnchored(text);
+      if (anchored.length > out.length) out = anchored;
+    }
     return out;
   }
 
